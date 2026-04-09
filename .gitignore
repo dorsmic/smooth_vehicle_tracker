@@ -1,0 +1,8 @@
+# Dart
+.dart_tool/
+build/
+*.iml
+.flutter-plugins-dependencies
+
+# Library package: do not commit lockfile for pub consumers
+pubspec.lock

@@ -1,15 +1,15 @@
 # smooth_vehicle_tracker
 
-Dead reckoning and polyline-based vehicle tracking for Flutter maps (e.g. Google Maps): smooth motion between sparse position updates (SSE), route snapping, predictive heading, and soft correction without teleporting the marker.
+Vehicle tracking on Flutter maps (Google Maps): interpolation between sparse server positions (SSE), snapping to a route polyline, smoothed bearing, and gradual correction without marker “teleporting”.
 
-## Install
+## Installation
 
 ```yaml
 dependencies:
-  smooth_vehicle_tracker: ^0.1.0+1
+  smooth_vehicle_tracker: ^0.1.0+2
 ```
 
-Or from Git:
+From Git:
 
 ```yaml
 dependencies:
@@ -19,58 +19,112 @@ dependencies:
       ref: main
 ```
 
-## Usage
+## Requirements (Flutter app)
+
+- **Flutter** and **Dart** within the ranges declared in this package’s `pubspec` (`environment`).
+- **Google Maps**: this package depends on `google_maps_flutter` (`LatLng`, polylines). Configure your app like any standard map integration: Android/iOS API keys, permissions, etc. — see the [plugin documentation](https://pub.dev/packages/google_maps_flutter).
+
+No extra keys or config files are required **specifically** for `smooth_vehicle_tracker`: only the map and positions (`LatLng`) matter.
+
+## Minimal integration
+
+1. **Create** a `VehicleTrackingEngine` with a `VehicleTrackingConfig` (or defaults) and, if available, an **initial** on-route position.
+2. **On each position from the backend** (SSE, WebSocket, polling, etc.), call  
+   `engine.onSsePosition(newPosition, polyline: routePoints)`  
+   using the same point list as the polyline drawn on the map (identical order). Omit `polyline` if you do not use route snapping.
+3. **On a steady schedule** (timer, `Ticker`, animation loop), call  
+   `engine.tick(polyline: routePoints)`  
+   passing the same polyline when used. **Recommended**: match the period to `config.tickInterval` (default **60 ms**), e.g. `Timer.periodic(config.tickInterval, (_) { ... })`, so speed and heading tuning stay consistent.
+4. **Read state**: after `tick`, use `renderPosition` and `bearing` for the **marker** (rotated icon), and `trackPosition` for the **camera** or business logic if you want the on-route point without the small forward render offset.
+
+## Configuration (`VehicleTrackingConfig`)
+
+All fields have **defaults** suited to urban tracking. Override them in the constructor:
+
+```dart
+const config = VehicleTrackingConfig(
+  tickInterval: Duration(milliseconds: 50),
+  routeSnapMaxDistanceMeters: 35.0,
+);
+```
+
+### Tick cadence and server updates
+
+| Parameter | Summary |
+|-----------|---------|
+| `tickInterval` | Target period for your `tick` calls (for your timer; the engine uses the actual `dt` between ticks). |
+| `freshSseWindow` | How long speed inferred from the last SSE stays “fresh” for dead reckoning. |
+| `minMoveMeters` | Minimum move between two SSE updates to avoid noise (otherwise speed goes to 0). |
+| `maxJumpMeters` / `fastJumpWindow` | Drop impossible jumps within a short time window (anti-spike). |
+
+### Speed and inertia
+
+| Parameter | Summary |
+|-----------|---------|
+| `minSpeedMps` / `maxSpeedMps` | Estimated speed bounds (m/s). |
+| `speedSmoothing` | Smooth displayed speed toward the target. |
+| `speedDecayPerSec` | Speed decay when there is no recent SSE. |
+| `stationarySpeedEpsilonMps` | Below this, the vehicle is treated as stopped. |
+
+### Snapping to the route (polyline)
+
+| Parameter | Summary |
+|-----------|---------|
+| `routeSnapMaxDistanceMeters` | Max distance to project position onto the route. |
+| `routeSnapReleaseDistanceMeters` | Beyond this, snapping is released. |
+| `segmentAngleWeight`, `maxSnapHeadingDeltaDeg`, `routeHeadingBlend` | Segment choice and heading / route blending. |
+| `lookAheadMinMeters`, `lookAheadMaxMeters`, `lookAheadSpeedFactor` | Look-ahead along the route vs speed. |
+| `intersectionExtraLookAheadMeters`, `intersectionCandidateDistanceMeters` | Behavior near intersections. |
+
+### Correction after an SSE update
+
+| Parameter | Summary |
+|-----------|---------|
+| `baseCorrectionFactor` / `aggressiveCorrectionFactor` / `aggressiveCorrectionDistance` | How strongly to correct toward the target vs error. |
+| `correctionDecayPerTick` | Correction damping over time. |
+| `correctionStopDistanceMeters` | Stop correcting when close enough. |
+
+### Heading (bearing)
+
+| Parameter | Summary |
+|-----------|---------|
+| `maxTurnRateTickDegPerSec`, `maxTurnRateSseDegPerSec` | Heading rotation limits between ticks / on SSE. |
+| `maxTurnRateTickOnSegmentChangeDegPerSec`, `maxTurnRateSseOnSegmentChangeDegPerSec` | Stricter limits shortly after a segment change. |
+| `bearingDeadbandDeg` | Deadband to reduce heading jitter. |
+| `headingFreezeMoveMeters` | Partially freeze heading when movement is very small. |
+
+### Marker rendering
+
+| Parameter | Summary |
+|-----------|---------|
+| `forwardPlacementMeters` | Nudges **displayed** position forward along bearing (visual icon offset). |
+| `vehicleAnchor` | Normalized `Offset` anchor for a vehicle bitmap (default slightly forward of center). |
+
+Exact names and full defaults are in `lib/src/vehicle_tracking_config.dart`.
+
+## Example flow
 
 ```dart
 final engine = VehicleTrackingEngine(
   config: const VehicleTrackingConfig(),
-  initialPosition: initialLatLng,
+  initialPosition: firstKnownLatLng,
 );
 
-// On each server position (SSE):
-engine.onSsePosition(newSseLatLng, polyline: routePolyline);
+// When a server position arrives:
+engine.onSsePosition(serverLatLng, polyline: routeLatLngs);
 
-// On a short timer (e.g. same as VehicleTrackingConfig.tickInterval conceptually):
-final next = engine.tick(polyline: routePolyline);
-
-final markerPos = next.renderPosition;
+// On a timer aligned with config.tickInterval:
+final next = engine.tick(polyline: routeLatLngs);
+final markerPosition = next.renderPosition;
 final markerBearing = next.bearing;
+// next.trackPosition → camera / logic along the path
 ```
 
-Use `next.trackPosition` for camera / logic and `next.renderPosition` for the marker (includes a small forward offset when configured).
+## Repository and package
 
-## Repository
-
-[https://github.com/dorsmic/smooth_vehicle_tracker](https://github.com/dorsmic/smooth_vehicle_tracker)
-
-Remote Git en **HTTPS** : `https://github.com/dorsmic/smooth_vehicle_tracker.git`
-
-### Première publication (dépôt vide sur GitHub)
-
-Le dépôt peut rester vide au début ([état actuel possible](https://github.com/dorsmic/smooth_vehicle_tracker)). Il faut un premier push pour que `flutter pub get` avec dépendance `git` fonctionne.
-
-Sur ta machine (authentification GitHub : navigateur, **Personal Access Token**, ou **GitHub CLI** `gh auth login`) :
-
-```bash
-cd packages/smooth_vehicle_tracker
-./tool/force_push_github.sh
-```
-
-Le script utilise **`git remote add origin https://github.com/dorsmic/smooth_vehicle_tracker.git`** puis **`git push -u origin main --force`**.
-
-### Équivalent des instructions GitHub (HTTPS)
-
-```bash
-git init
-git branch -M main
-git remote add origin https://github.com/dorsmic/smooth_vehicle_tracker.git
-git add -A
-git commit -m "Release smooth_vehicle_tracker"
-git push -u origin main --force
-```
-
-Si tu avais seulement le README créé depuis le site GitHub, le `--force` remplace l’historique par le contenu du package (voulu).
+- Repository: [github.com/dorsmic/smooth_vehicle_tracker](https://github.com/dorsmic/smooth_vehicle_tracker)  
+- Package: [pub.dev/packages/smooth_vehicle_tracker](https://pub.dev/packages/smooth_vehicle_tracker)
 
 ## License
 
-MIT (see [LICENSE](LICENSE)).
+MIT — see [LICENSE](LICENSE).

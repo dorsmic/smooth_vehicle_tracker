@@ -2,7 +2,7 @@ name: smooth_vehicle_tracker
 description: >-
   Dead-reckoning and polyline-based vehicle tracking for Flutter maps
   (Google Maps): sparse SSE updates, route snapping, smoothed heading.
-version: 0.1.0+2
+version: 0.2.0
 homepage: https://github.com/dorsmic/smooth_vehicle_tracker
 repository: https://github.com/dorsmic/smooth_vehicle_tracker
 issue_tracker: https://github.com/dorsmic/smooth_vehicle_tracker/issues

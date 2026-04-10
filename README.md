@@ -6,7 +6,7 @@ Vehicle tracking on Flutter maps (Google Maps): interpolation between sparse ser
 
 ```yaml
 dependencies:
-  smooth_vehicle_tracker: ^0.1.0+2
+  smooth_vehicle_tracker: ^0.2.0
 ```
 
 From Git:

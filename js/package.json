@@ -1,0 +1,52 @@
+{
+  "name": "smooth-vehicle-tracker",
+  "version": "0.1.1",
+  "description": "Dead-reckoning and polyline vehicle tracking for web maps (Google Maps JS): same logic as the Dart smooth_vehicle_tracker package.",
+  "author": "dorsmic",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepack": "npm run build",
+    "publish:dry-run": "npm publish --dry-run .",
+    "publish:public": "npm publish ."
+  },
+  "keywords": [
+    "google-maps",
+    "maps",
+    "vehicle",
+    "tracking",
+    "dead-reckoning",
+    "polyline"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dorsmic/smooth_vehicle_tracker.git",
+    "directory": "js"
+  },
+  "bugs": {
+    "url": "https://github.com/dorsmic/smooth_vehicle_tracker/issues"
+  },
+  "homepage": "https://github.com/dorsmic/smooth_vehicle_tracker#readme",
+  "devDependencies": {
+    "typescript": "~5.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
